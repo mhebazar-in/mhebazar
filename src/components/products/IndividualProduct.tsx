@@ -19,6 +19,10 @@ import {
   Minus,
   Plus,
   Trash2,
+  FileText,
+  Download,
+  Lock,
+  CheckCircle2,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -28,7 +32,14 @@ import { toast } from "sonner";
 import { useUser } from "@/context/UserContext";
 // import QuoteForm from "@/components/forms/enquiryForm/quotesForm";
 import RentalForm from "@/components/forms/enquiryForm/rentalForm";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 // import MheWriteAReview from "@/components/forms/product/ProductReviewForm";
 // import ReviewSection from "./Reviews";
 import DOMPurify from "dompurify";
@@ -98,6 +109,7 @@ type ProductData = {
   user_name: string;
   images: ProductImage[];
   brochure: string | null;
+  offer: string | null;
   average_rating: number | null;
   review_count: number;
   user_description: string | null;
@@ -368,6 +380,11 @@ export default function ProductSection({
   const [erroredImageIds, setErroredImageIds] = useState<Set<number>>(
     new Set()
   );
+
+  // Thank You popup shown after a Brochure/Offer download is triggered
+  const [thankYouDoc, setThankYouDoc] = useState<
+    { type: "offer" | "brochure"; fileName: string } | null
+  >(null);
 
   // State for the media gallery modal
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
@@ -747,6 +764,52 @@ export default function ProductSection({
         });
     }
   }, [data]);
+
+  // Best-effort download tracking. Silently ignored if the backend
+  // endpoint isn't available yet, so it never blocks the download itself.
+  const trackDownload = useCallback(
+    async (documentType: "offer" | "brochure") => {
+      if (!data?.id) return;
+      try {
+        await api.post(`/products/${data.id}/track-download/`, {
+          document_type: documentType,
+        });
+      } catch (err) {
+        console.error(`Failed to record ${documentType} download:`, err);
+      }
+    },
+    [data?.id]
+  );
+
+  const getFileName = (path: string, fallback: string) => {
+    const parts = path.split("/");
+    return parts[parts.length - 1] || fallback;
+  };
+
+  const handleDownloadBrochure = useCallback(() => {
+    if (!data?.brochure) return;
+    trackDownload("brochure");
+    setThankYouDoc({
+      type: "brochure",
+      fileName: getFileName(data.brochure, "Brochure"),
+    });
+  }, [data?.brochure, trackDownload]);
+
+  const handleViewOffer = useCallback(() => {
+    if (!user) {
+      toast.error("Please log in to view this product's offer.");
+      router.push("/login");
+      return;
+    }
+    if (data?.offer) {
+      window.open(cleanMediaUrl(data.offer), "_blank", "noopener,noreferrer");
+      trackDownload("offer");
+      setThankYouDoc({
+        type: "offer",
+        fileName: getFileName(data.offer, "Offer"),
+      });
+    }
+  }, [user, data?.offer, router, trackDownload]);
 
   const registerReviewsRefresher = useCallback((refresher: () => void) => {
     // This function is still defined here, but unused in the final code structure
@@ -1373,6 +1436,56 @@ export default function ProductSection({
             </div>
           </div>
 
+          {/* Documents: Brochure (public) & Offer (logged-in users only) */}
+          {(data.brochure || data.offer) && (
+            <div className="pt-6 border-t border-gray-200">
+              <p className="text-lg md:text-2xl font-bold mb-4">Documents</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {data.brochure && (
+                  <a
+                    href={cleanMediaUrl(data.brochure)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={handleDownloadBrochure}
+                    className="group flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 hover:border-[#5CA131] hover:shadow-md transition-all"
+                  >
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-50 text-[#5CA131] group-hover:bg-[#5CA131] group-hover:text-white transition-colors">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-gray-900">Product Brochure</p>
+                      <p className="text-xs text-gray-500">Full specifications (PDF)</p>
+                    </div>
+                    <Download className="w-4 h-4 text-gray-400 group-hover:text-[#5CA131] transition-colors shrink-0" />
+                  </a>
+                )}
+
+                {data.offer && (
+                  <button
+                    type="button"
+                    onClick={handleViewOffer}
+                    className="group flex items-center gap-3 rounded-lg border border-orange-200 bg-orange-50 p-4 text-left hover:border-orange-400 hover:shadow-md transition-all"
+                  >
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-600 group-hover:bg-orange-500 group-hover:text-white transition-colors">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-gray-900">Special Offer</p>
+                      <p className="text-xs text-gray-500">
+                        {user ? "Click to view" : "Login required to view"}
+                      </p>
+                    </div>
+                    {user ? (
+                      <Download className="w-4 h-4 text-orange-500 group-hover:text-orange-700 transition-colors shrink-0" />
+                    ) : (
+                      <Lock className="w-4 h-4 text-orange-500 group-hover:text-orange-700 transition-colors shrink-0" />
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="pt-6 border-t border-gray-200">
             <p className="text-lg md:text-2xl font-bold">Product Details</p>
             <div className="relative">
@@ -1827,6 +1940,30 @@ export default function ProductSection({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Thank You popup shown after a Brochure/Offer download is triggered */}
+      <Dialog
+        open={!!thankYouDoc}
+        onOpenChange={(open) => {
+          if (!open) setThankYouDoc(null);
+        }}
+      >
+        <DialogContent className="max-w-sm text-center">
+          <DialogHeader className="items-center text-center sm:text-center">
+            <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
+              <CheckCircle2 className="w-8 h-8 text-[#5CA131]" />
+            </div>
+            <DialogTitle className="text-xl">Thank You!</DialogTitle>
+            <DialogDescription className="text-sm">
+              {thankYouDoc?.type === "offer" ? "The offer" : "The brochure"}{" "}
+              <span className="font-medium text-gray-700">
+                {thankYouDoc?.fileName}
+              </span>{" "}
+              has started downloading.
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }

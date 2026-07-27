@@ -23,6 +23,7 @@ export type Product = {
   price: string;
   type: string;
   brochure: string | null;
+  offer: string | null;
   images: Array<{
     id: number;
     image: string;

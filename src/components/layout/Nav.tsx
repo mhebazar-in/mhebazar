@@ -20,6 +20,7 @@ import {
   Bell,
   ShieldCheck,
   UserPlus,
+  FileText,
 } from "lucide-react";
 import { useRef, useState, useEffect, JSX } from "react";
 import Image from "next/image";
@@ -347,6 +348,15 @@ export default function Navbar(): JSX.Element {
                               >
                                 <Tag className="mr-2 h-4 w-4 text-blue-600" />
                                 <span>My Products</span>
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link
+                                href="/vendor/document-downloads"
+                                className="cursor-pointer"
+                              >
+                                <FileText className="mr-2 h-4 w-4 text-blue-600" />
+                                <span>Document Downloads</span>
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>

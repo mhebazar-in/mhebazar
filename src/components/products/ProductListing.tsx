@@ -464,6 +464,7 @@ function ProductGrid({
 }
 
 interface ProductListingProps {
+  sponsorBanner?: React.ReactNode;
   products: Product[];
   title?: string;
   totalCount: number;
@@ -491,6 +492,7 @@ interface ProductListingProps {
 }
 
 export default function ProductListing({
+  sponsorBanner,
   products,
   title,
   totalCount,
@@ -685,6 +687,12 @@ export default function ProductListing({
               </div>
             </div>
           </div>
+
+          {sponsorBanner && (
+            <div className="px-4 sm:px-6 lg:px-8">
+              {sponsorBanner}
+            </div>
+          )}
 
           {/* Products Grid and Pagination */}
           <div className="p-4 sm:p-6 lg:p-8">

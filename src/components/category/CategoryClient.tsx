@@ -8,6 +8,14 @@ import ProductListing from "@/components/products/ProductListing";
 import Breadcrumb from "@/components/elements/Breadcrumb";
 import { RouteContext, Product as ApiProduct, getProducts } from "@/lib/product-api";
 import { Product as ListingProduct } from "@/components/products/ProductListing";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+import Autoplay from "embla-carousel-autoplay";
 
 interface CategoryClientProps {
     dehydratedState: unknown;
@@ -24,6 +32,7 @@ export default function CategoryClient({
 }: CategoryClientProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const autoplayPlugin = React.useRef(Autoplay({ delay: 4000, stopOnInteraction: true }));
 
     // Context is static for this route, initially from server
     const context = initialContext;
@@ -168,11 +177,41 @@ export default function CategoryClient({
         );
     }
 
+    // SPONSOR BANNERS FOR CHARGER CATEGORY
+    const chargerBanners = urlParamSlug?.toLowerCase() === 'charger' ? (
+        <div className="w-full mb-8 mt-4">
+            <Carousel 
+                opts={{ align: "start", loop: true }}
+                plugins={[autoplayPlugin.current]}
+                className="w-full relative group"
+            >
+                <CarouselContent>
+                    {['dynalektric1.jpeg', 'dynalektric2.jpeg', 'dynalektric3.jpeg', 'dynalektric4.jpeg'].map((img, i) => (
+                        <CarouselItem key={i}>
+                            <div className="w-full relative overflow-hidden rounded-xl shadow-lg">
+                                <img 
+                                    src={`/category-sponsor/${img}`} 
+                                    alt={`Dynalektric Banner ${i + 1}`} 
+                                    className="w-full h-auto object-contain" 
+                                />
+                            </div>
+                        </CarouselItem>
+                    ))}
+                </CarouselContent>
+                <div className="hidden sm:block opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 border-none shadow-md" />
+                    <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 border-none shadow-md" />
+                </div>
+            </Carousel>
+        </div>
+    ) : null;
+
     return (
         <HydrationBoundary state={dehydratedState as DehydratedState}>
             <Breadcrumb items={breadcrumbItems} />
             <div className={`transition-opacity duration-300 ${isFetching && !isLoading ? 'opacity-50' : 'opacity-100'}`}>
                 <ProductListing
+                    sponsorBanner={chargerBanners}  
                     products={productsData?.products as ListingProduct[] || []}
                     title={context?.subName || context?.name || "All Products"}
                     totalCount={productsData?.totalCount || 0}

@@ -11,6 +11,7 @@ import {
   ChevronDown,
   LayoutTemplate,
   User2,
+  FileDown,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -76,6 +77,11 @@ const Sidebar = () => {
       icon: User2,
       label: "Vendor Tracking",
       href: "/admin/vendor-tracking",
+    },
+    {
+      icon: FileDown,
+      label: "Document Downloads",
+      href: "/admin/document-downloads",
     },
 
   ];

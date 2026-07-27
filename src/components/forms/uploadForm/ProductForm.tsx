@@ -160,6 +160,7 @@ type ProductFormData = {
   online_payment: boolean;
   stock_quantity: number;
   brochure?: FileList;
+  offer?: FileList;
   images?: FileList;
   product_details: Record<string, string>;
   isVendor?: boolean;
@@ -176,6 +177,26 @@ const TYPE_OPTIONS = [
 // --- CONSTANTS FOR IMAGE VALIDATION ---
 const MIN_IMAGE_SIZE_BYTES = 50 * 1024; // 50 KB
 const MAX_IMAGE_SIZE_BYTES = 1 * 1024 * 1024; // 1 MB
+
+// --- CONSTANTS FOR DOCUMENT VALIDATION (Brochure / Offer) ---
+// Accept PDF, PPT, PPTX, DOC, DOCX
+const ALLOWED_DOCUMENT_EXTENSIONS = ['.pdf', '.ppt', '.pptx', '.doc', '.docx']
+const ALLOWED_DOCUMENT_MIME_TYPES = [
+  'application/pdf',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]
+const DOCUMENT_ACCEPT_ATTR = '.pdf,.ppt,.pptx,.doc,.docx'
+
+const isAllowedDocument = (file: File): boolean => {
+  const name = file.name.toLowerCase()
+  return (
+    ALLOWED_DOCUMENT_MIME_TYPES.includes(file.type) ||
+    ALLOWED_DOCUMENT_EXTENSIONS.some((ext) => name.endsWith(ext))
+  )
+}
 
 interface ProductFormProps {
   product?: Product;
@@ -201,6 +222,7 @@ export default function ProductForm({ product, onSuccess, defaultType, isVendor 
   const [firstImageFile, setFirstImageFile] = useState<File | null>(null); // State for first/main image file
   const [imageFiles, setImageFiles] = useState<File[]>([]) // State for additional image files
   const [brochureFile, setBrochureFile] = useState<File | null>(null)
+  const [offerFile, setOfferFile] = useState<File | null>(null)
   const [vendorLoading, setVendorLoading] = useState(false);
   const [vendors, setVendors] = useState<AdminVendor[]>([]);
   const [vendorsLoading, setVendorsLoading] = useState(false);
@@ -211,6 +233,7 @@ export default function ProductForm({ product, onSuccess, defaultType, isVendor 
     (product?.images as ProductImage[]) || []
   );
   const [keptBrochureUrl, setKeptBrochureUrl] = useState<string | null>(null);
+  const [keptOfferUrl, setKeptOfferUrl] = useState<string | null>(null);
   const [youtubeLinks, setYoutubeLinks] = useState<string[]>([]); // New state for NEW YouTube links to be saved
 
   const {
@@ -556,6 +579,9 @@ export default function ProductForm({ product, onSuccess, defaultType, isVendor 
     if (product?.brochure) {
       setKeptBrochureUrl(product.brochure);
     }
+    if (product?.offer) {
+      setKeptOfferUrl(product.offer);
+    }
     if (product?.images) {
       // The list of all existing media (images and video links)
       const allExistingMedia = (product.images as ProductImage[]) || [];
@@ -666,6 +692,21 @@ export default function ProductForm({ product, onSuccess, defaultType, isVendor 
         }
       }
 
+      if (offerFile) {
+        const offerFormData = new FormData()
+        offerFormData.append('offer', offerFile)
+        const offerUrl = `/products/${productId}/upload_offer/`
+        try {
+          await api.post(offerUrl, offerFormData, { headers: { 'Content-Type': 'multipart/form-data' } })
+          setKeptOfferUrl(offerFile.name)
+          setOfferFile(null)
+          toast.success("Offer uploaded successfully")
+        } catch (offerError) {
+          console.error("Failed to upload offer:", offerError)
+          toast.error("Failed to upload offer")
+        }
+      }
+
       // 3. CONSOLIDATED Image Upload (Handles First Image and Additional Images)
       const allNewImageFiles: File[] = [];
 
@@ -746,12 +787,25 @@ export default function ProductForm({ product, onSuccess, defaultType, isVendor 
 
   const handleBrochureChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file && file.type === 'application/pdf') {
+    if (file && isAllowedDocument(file)) {
       setBrochureFile(file)
       setKeptBrochureUrl(null);
     } else {
       setBrochureFile(null);
-      toast.warning('Please select a valid PDF file for the brochure.')
+      event.target.value = '';
+      toast.warning('Please select a valid document (PDF, PPT, PPTX, DOC, DOCX) for the brochure.')
+    }
+  }
+
+  const handleOfferChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file && isAllowedDocument(file)) {
+      setOfferFile(file)
+      setKeptOfferUrl(null);
+    } else if (file) {
+      setOfferFile(null);
+      event.target.value = '';
+      toast.warning('Please select a valid document (PDF, PPT, PPTX, DOC, DOCX) for the offer.')
     }
   }
 
@@ -846,6 +900,12 @@ export default function ProductForm({ product, onSuccess, defaultType, isVendor 
     if (input) input.value = ''
   }
 
+  const removeOffer = () => {
+    setOfferFile(null)
+    const input = document.getElementById('offer-input') as HTMLInputElement
+    if (input) input.value = ''
+  }
+
   const removeFirstImage = () => {
     setFirstImageFile(null)
     const input = document.getElementById('first-image-input') as HTMLInputElement
@@ -888,6 +948,18 @@ export default function ProductForm({ product, onSuccess, defaultType, isVendor 
     } catch (error) {
       console.error('Failed to remove brochure:', error)
       toast.error('Failed to remove brochure')
+    }
+  }
+
+  const removeExistingOffer = async () => {
+    if (!product?.id) return
+    try {
+      await api.delete(`/products/${product.id}/delete-offer/`)
+      setKeptOfferUrl(null);
+      toast.success('Offer removed successfully')
+    } catch (error) {
+      console.error('Failed to remove offer:', error)
+      toast.error('Failed to remove offer')
     }
   }
 
@@ -1033,6 +1105,17 @@ export default function ProductForm({ product, onSuccess, defaultType, isVendor 
     }
     return null;
   }, [brochureFile, keptBrochureUrl]);
+
+  // Determine the file name to display for the offer
+  const offerDisplayName = useMemo(() => {
+    if (offerFile) return offerFile.name;
+    if (keptOfferUrl) {
+      // Extract file name from the URL path if it exists
+      const parts = keptOfferUrl.split('/');
+      return parts[parts.length - 1] || "Existing Offer";
+    }
+    return null;
+  }, [offerFile, keptOfferUrl]);
 
   // Filter existing media for display: Images only
   const displayableImages = useMemo(() => {
@@ -1467,11 +1550,11 @@ export default function ProductForm({ product, onSuccess, defaultType, isVendor 
 
                   {/* Brochure Upload/Display (Existing logic) */}
                   <div className='border p-3 rounded-lg'>
-                    <Label className="text-sm text-gray-600 mb-2 block">Brochure (PDF Only)</Label>
+                    <Label className="text-sm text-gray-600 mb-2 block">Brochure (PDF, PPT, DOC)</Label>
                     <input
                       id="brochure-input"
                       type="file"
-                      accept=".pdf"
+                      accept={DOCUMENT_ACCEPT_ATTR}
                       style={{ display: 'none' }}
                       onChange={handleBrochureChange}
                     />
@@ -1483,7 +1566,7 @@ export default function ProductForm({ product, onSuccess, defaultType, isVendor 
                       onClick={() => document.getElementById('brochure-input')?.click()}
                     >
                       <FileText className="w-4 h-4 mr-2" />
-                      Select Brochure (PDF)
+                      Select Brochure
                     </Button>
 
                     {(brochureFile || keptBrochureUrl) && (
@@ -1509,6 +1592,49 @@ export default function ProductForm({ product, onSuccess, defaultType, isVendor 
                     )}
                   </div>
 
+                  {/* Offer Upload/Display */}
+                  <div className='border p-3 rounded-lg'>
+                    <Label className="text-sm text-gray-600 mb-2 block">Offer (PDF, PPT, DOC)</Label>
+                    <input
+                      id="offer-input"
+                      type="file"
+                      accept={DOCUMENT_ACCEPT_ATTR}
+                      style={{ display: 'none' }}
+                      onChange={handleOfferChange}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-10 border-gray-300 text-gray-600 text-sm"
+                      onClick={() => document.getElementById('offer-input')?.click()}
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      Select Offer
+                    </Button>
+
+                    {(offerFile || keptOfferUrl) && (
+                      <div className="mt-3 p-3 bg-gray-50 rounded text-sm flex items-center justify-between">
+                        <div className="flex items-center truncate">
+                          <FileText className="w-4 h-4 mr-2 text-blue-600 flex-shrink-0" />
+                          <span className="text-gray-700 truncate">
+                            {/* Use the computed display name */}
+                            {offerDisplayName}
+                          </span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500 hover:text-red-700 h-6 p-1 ml-2 flex-shrink-0"
+                          onClick={offerFile ? removeOffer : removeExistingOffer}
+                        >
+                          <X size={14} className="mr-1" />
+                          Remove
+                        </Button>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Images Upload/Youtube Link Section */}
                   <div className='border p-3 rounded-lg space-y-4'>
