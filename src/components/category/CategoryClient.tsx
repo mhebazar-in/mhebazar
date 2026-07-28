@@ -16,6 +16,11 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
+import api from "@/lib/api";
+
+// Dynalektric vendor's user_id in users_vendor, used to route the charger
+// category sponsor banners to one of their live products.
+const DYNALEKTRIC_VENDOR_USER_ID = 729;
 
 interface CategoryClientProps {
     dehydratedState: unknown;
@@ -60,6 +65,28 @@ export default function CategoryClient({
             currentPage: (searchParams.get('page') ? Number(searchParams.get('page')) : 1),
         });
     }, [searchParams]);
+
+    // Fetch one live Dynalektric product to link the charger category
+    // sponsor banners to (only needed on the charger category page).
+    const [dynalektricProductId, setDynalektricProductId] = useState<number | null>(null);
+    useEffect(() => {
+        if (urlParamSlug?.toLowerCase() !== 'charger') return;
+        let cancelled = false;
+        api.get('/products/', { params: { user: DYNALEKTRIC_VENDOR_USER_ID, page_size: 1 } })
+            .then((res) => {
+                if (cancelled) return;
+                const product = res.data?.results?.[0] || res.data?.[0];
+                if (product?.id) setDynalektricProductId(product.id);
+            })
+            .catch((err) => console.error('Failed to load Dynalektric product for banner link:', err));
+        return () => { cancelled = true; };
+    }, [urlParamSlug]);
+
+    const handleDynalektricBannerClick = useCallback(() => {
+        if (dynalektricProductId) {
+            router.push(`/product/dynalektric-${dynalektricProductId}`);
+        }
+    }, [dynalektricProductId, router]);
 
     // React Query for Products (Hydrated from server)
     const {
@@ -188,11 +215,16 @@ export default function CategoryClient({
                 <CarouselContent>
                     {['dynalektric1.jpeg', 'dynalektric2.jpeg', 'dynalektric3.jpeg', 'dynalektric4.jpeg'].map((img, i) => (
                         <CarouselItem key={i}>
-                            <div className="w-full relative overflow-hidden rounded-xl shadow-lg">
-                                <img 
-                                    src={`/category-sponsor/${img}`} 
-                                    alt={`Dynalektric Banner ${i + 1}`} 
-                                    className="w-full h-auto object-contain" 
+                            <div
+                                className="w-full relative overflow-hidden rounded-xl shadow-lg cursor-pointer"
+                                onClick={handleDynalektricBannerClick}
+                                role="button"
+                                aria-label="View Dynalektric products"
+                            >
+                                <img
+                                    src={`/category-sponsor/${img}`}
+                                    alt={`Dynalektric Banner ${i + 1}`}
+                                    className="w-full h-auto object-contain"
                                 />
                             </div>
                         </CarouselItem>
