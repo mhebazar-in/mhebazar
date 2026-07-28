@@ -66,27 +66,32 @@ export default function CategoryClient({
         });
     }, [searchParams]);
 
-    // Fetch one live Dynalektric product to link the charger category
-    // sponsor banners to (only needed on the charger category page).
-    const [dynalektricProductId, setDynalektricProductId] = useState<number | null>(null);
+    // Fetch up to 4 live Dynalektric products, one per sponsor banner
+    // (only needed on the charger category page).
+    const [dynalektricProductIds, setDynalektricProductIds] = useState<number[]>([]);
     useEffect(() => {
         if (urlParamSlug?.toLowerCase() !== 'charger') return;
         let cancelled = false;
-        api.get('/products/', { params: { user: DYNALEKTRIC_VENDOR_USER_ID, page_size: 1 } })
+        api.get('/products/', { params: { user: DYNALEKTRIC_VENDOR_USER_ID, page_size: 4 } })
             .then((res) => {
                 if (cancelled) return;
-                const product = res.data?.results?.[0] || res.data?.[0];
-                if (product?.id) setDynalektricProductId(product.id);
+                const results = res.data?.results || res.data || [];
+                const ids = Array.isArray(results)
+                    ? results.map((p: { id: number }) => p.id).filter(Boolean)
+                    : [];
+                setDynalektricProductIds(ids);
             })
-            .catch((err) => console.error('Failed to load Dynalektric product for banner link:', err));
+            .catch((err) => console.error('Failed to load Dynalektric products for banner links:', err));
         return () => { cancelled = true; };
     }, [urlParamSlug]);
 
-    const handleDynalektricBannerClick = useCallback(() => {
-        if (dynalektricProductId) {
-            router.push(`/product/dynalektric-${dynalektricProductId}`);
-        }
-    }, [dynalektricProductId, router]);
+    // Cycles through whatever products were found, so each banner points
+    // at a different one even if there are fewer than 4 in stock.
+    const handleDynalektricBannerClick = useCallback((bannerIndex: number) => {
+        if (dynalektricProductIds.length === 0) return;
+        const productId = dynalektricProductIds[bannerIndex % dynalektricProductIds.length];
+        router.push(`/product/dynalektric-${productId}`);
+    }, [dynalektricProductIds, router]);
 
     // React Query for Products (Hydrated from server)
     const {
@@ -217,7 +222,7 @@ export default function CategoryClient({
                         <CarouselItem key={i}>
                             <div
                                 className="w-full relative overflow-hidden rounded-xl shadow-lg cursor-pointer"
-                                onClick={handleDynalektricBannerClick}
+                                onClick={() => handleDynalektricBannerClick(i)}
                                 role="button"
                                 aria-label="View Dynalektric products"
                             >
