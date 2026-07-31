@@ -8,7 +8,9 @@ import {
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
+  type CarouselApi,
 } from "@/components/ui/carousel";
+import { useDotButton } from "@/components/ui/carousel-dots";
 import Autoplay from "embla-carousel-autoplay";
 
 // Define the component's props
@@ -55,11 +57,15 @@ export default function VendorBanner({
     Autoplay({ delay: 5000, stopOnInteraction: true })
   );
 
+  const [api, setApi] = useState<CarouselApi>();
+  const { selectedIndex, scrollSnaps, onDotClick } = useDotButton(api);
+
   return (
     <div className="w-full bg-white pb-8">
       {/* --- Carousel Banner --- */}
       <div className="w-full aspect-[16/9] sm:aspect-[3/1] lg:aspect-[4/1] relative">
         <Carousel
+          setApi={setApi}
           plugins={[plugin.current]}
           className="w-full h-full"
           onMouseEnter={plugin.current.stop}
@@ -122,6 +128,21 @@ export default function VendorBanner({
             />
           </div>
         </div>
+      </div>
+
+      {/* Dot navigation */}
+      <div className="flex justify-center space-x-2 mt-16 sm:mt-8 mb-4">
+        {scrollSnaps.map((_, idx) => (
+          <span
+            key={idx}
+            className={`duration-300 ${
+              idx === selectedIndex
+                ? "w-3 h-3 bg-[#42a856]"
+                : "w-3 h-3 bg-[#b5e0c0] hover:bg-[#a5d8b2]"
+            } rounded-full cursor-pointer flex items-center justify-center`}
+            onClick={() => onDotClick(idx)}
+          />
+        ))}
       </div>
 
       {/* --- Product Count (Mobile) --- */}

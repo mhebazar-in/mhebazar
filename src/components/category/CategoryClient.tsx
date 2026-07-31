@@ -14,7 +14,9 @@ import {
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
+  type CarouselApi,
 } from "@/components/ui/carousel";
+import { useDotButton } from "@/components/ui/carousel-dots";
 import Autoplay from "embla-carousel-autoplay";
 import api from "@/lib/api";
 
@@ -38,6 +40,8 @@ export default function CategoryClient({
     const router = useRouter();
     const searchParams = useSearchParams();
     const autoplayPlugin = React.useRef(Autoplay({ delay: 4000, stopOnInteraction: true }));
+    const [carouselApi, setCarouselApi] = useState<CarouselApi>();
+    const { selectedIndex, scrollSnaps, onDotClick } = useDotButton(carouselApi);
 
     // Context is static for this route, initially from server
     const context = initialContext;
@@ -213,6 +217,7 @@ export default function CategoryClient({
     const chargerBanners = urlParamSlug?.toLowerCase() === 'charger' ? (
         <div className="w-full mb-8 mt-4">
             <Carousel 
+                setApi={setCarouselApi}
                 opts={{ align: "start", loop: true }}
                 plugins={[autoplayPlugin.current]}
                 className="w-full relative group"
@@ -240,6 +245,19 @@ export default function CategoryClient({
                     <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 border-none shadow-md" />
                 </div>
             </Carousel>
+            <div className="flex justify-center space-x-2 mt-4">
+              {scrollSnaps.map((_, idx) => (
+                <span
+                  key={idx}
+                  className={`duration-300 ${
+                    idx === selectedIndex
+                      ? "w-3 h-3 bg-[#42a856]"
+                      : "w-3 h-3 bg-[#b5e0c0] hover:bg-[#a5d8b2]"
+                  } rounded-full cursor-pointer flex items-center justify-center`}
+                  onClick={() => onDotClick(idx)}
+                />
+              ))}
+            </div>
         </div>
     ) : null;
 
