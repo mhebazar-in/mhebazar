@@ -1,5 +1,4 @@
 # MHE Bazar - Material Handling Equipment Marketplace
-
 ![MHE Bazar](public/mhe-logo.png)
 
 **MHE Bazar** is a comprehensive e-commerce platform for Material Handling Equipment (MHE) in India, serving as a marketplace for forklifts, pallet trucks, stackers, reach trucks, and related equipment. The platform offers sales, rentals, spare parts, and services for industrial businesses.
